@@ -26,7 +26,7 @@ export default function NotificationBell() {
       .then(data => { if (Array.isArray(data)) setNotifications(data) })
   }, [])
 
-  async function markRead() {
+  async function markAllRead() {
     if (!token || notifications.length === 0) return
     await fetch('/api/notifications', {
       method: 'POST',
@@ -45,7 +45,7 @@ export default function NotificationBell() {
   return (
     <div className="relative">
       <button
-        onClick={() => { setOpen(o => !o); if (!open && count > 0) markRead() }}
+        onClick={() => setOpen(o => !o)}
         className="relative text-gray-500 hover:text-gray-800 p-1"
         aria-label="消息通知"
       >
@@ -63,7 +63,10 @@ export default function NotificationBell() {
         <div className="absolute right-0 top-8 w-72 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
             <span className="text-sm font-semibold">消息通知</span>
-            <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600 text-xs">关闭</button>
+            <div className="flex items-center gap-3">
+              {count > 0 && <button onClick={markAllRead} className="text-gray-400 hover:text-gray-600 text-xs">全部已读</button>}
+              <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600 text-xs">关闭</button>
+            </div>
           </div>
           {notifications.length === 0 ? (
             <div className="px-4 py-6 text-center text-sm text-gray-400">暂无新消息</div>
@@ -73,7 +76,7 @@ export default function NotificationBell() {
                 <a
                   key={n.id}
                   href={`/forum/${n.post_id}`}
-                  onClick={() => setOpen(false)}
+                  onClick={() => { setOpen(false); markAllRead() }}
                   className="block px-4 py-3 hover:bg-gray-50 transition-colors"
                 >
                   <p className="text-sm text-gray-700">{label(n)}</p>

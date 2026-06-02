@@ -4,7 +4,7 @@ import { createServiceClient } from '@/lib/supabase'
 export async function POST(req: NextRequest) {
   const { item_id, rating, body } = await req.json()
 
-  if (!item_id || !rating || rating < 1 || rating > 5) {
+  if (!item_id || !rating || rating < 0.5 || rating > 5) {
     return NextResponse.json({ error: '参数错误' }, { status: 400 })
   }
 
@@ -27,16 +27,16 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const { error } = await supabase.from('reviews').insert({
+  const { data, error } = await supabase.from('reviews').insert({
     item_id,
     rating,
     body: body || null,
     ip_address: ip,
-  })
+  }).select().single()
 
   if (error) {
     return NextResponse.json({ error: '提交失败，请重试' }, { status: 500 })
   }
 
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ ok: true, id: data.id })
 }

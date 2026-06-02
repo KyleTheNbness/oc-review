@@ -54,9 +54,6 @@ export default async function HomePage() {
               <div className="font-semibold text-base">{cat.name}</div>
               <div className="text-xs text-gray-400">
                 {s.count} 个条目
-                {s.avg !== null && (
-                  <span className="ml-2 text-amber-500">★ {s.avg.toFixed(1)}</span>
-                )}
               </div>
             </Link>
           )

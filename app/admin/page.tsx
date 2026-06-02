@@ -52,36 +52,23 @@ export default function AdminPage() {
   }
 
   async function loadData() {
-    const { data: cats } = await supabase.from('categories').select('*')
-    setCategories(cats || [])
+    const res = await fetch('/api/admin/data')
+    const json = await res.json()
 
-    const { data: allItems } = await supabase
-      .from('items')
-      .select('*, categories(name)')
-      .order('created_at', { ascending: false })
+    setCategories(json.categories || [])
     setItems(
-      (allItems || []).map((i: any) => ({
+      (json.items || []).map((i: any) => ({
         ...i,
         category_name: i.categories?.name,
       }))
     )
-
-    const { data: allReviews } = await supabase
-      .from('reviews')
-      .select('*, items(name)')
-      .order('created_at', { ascending: false })
     setReviews(
-      (allReviews || []).map((r: any) => ({
+      (json.reviews || []).map((r: any) => ({
         ...r,
         item_name: r.items?.name,
       }))
     )
-
-    const { data: allMessages } = await supabase
-      .from('messages')
-      .select('*')
-      .order('created_at', { ascending: false })
-    setMessages(allMessages || [])
+    setMessages(json.messages || [])
   }
 
   async function toggleReview(id: number, hidden: boolean) {

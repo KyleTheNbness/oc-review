@@ -70,12 +70,13 @@ export default function ItemPage() {
 
   async function submitReview() {
     if (rating === 0) { setSubmitMsg('请选择星级评分'); return }
+    if (!body.trim()) { setSubmitMsg('请填写评价内容'); return }
     setSubmitting(true)
     setSubmitMsg('')
     const res = await fetch('/api/reviews', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ item_id: id, rating, body: body.trim() || null }),
+      body: JSON.stringify({ item_id: id, rating, body: body.trim() }),
     })
     const json = await res.json()
     if (!res.ok) {
@@ -141,7 +142,7 @@ export default function ItemPage() {
           <StarPicker value={rating} onChange={setRating} />
         </div>
         <textarea
-          placeholder="写下你的感受（可选）"
+          placeholder="写下你的感受（必填）"
           value={body}
           onChange={e => setBody(e.target.value)}
           rows={3}

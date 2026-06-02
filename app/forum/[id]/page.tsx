@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -63,10 +63,13 @@ export default function PostPage() {
   const [editingPost, setEditingPost] = useState(false)
   const [editTitle, setEditTitle] = useState('')
   const [editBody, setEditBody] = useState('')
+  const editTitleRef = useRef<HTMLInputElement>(null)
+  const editBodyRef = useRef<HTMLTextAreaElement>(null)
 
   // 编辑回复
   const [editingCommentId, setEditingCommentId] = useState<number | null>(null)
   const [editCommentBody, setEditCommentBody] = useState('')
+  const editCommentRef = useRef<HTMLTextAreaElement>(null)
 
   async function loadComments() {
     const { data } = await supabase
@@ -118,12 +121,14 @@ export default function PostPage() {
   }
 
   async function savePost() {
+    const title = editTitleRef.current?.value ?? editTitle
+    const body = editBodyRef.current?.value ?? editBody
     await fetch(`/api/posts/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: editTitle, body: editBody }),
+      body: JSON.stringify({ title, body }),
     })
-    setPost(p => p ? { ...p, title: editTitle, body: editBody || null } : p)
+    setPost(p => p ? { ...p, title, body: body || null } : p)
     setEditingPost(false)
   }
 
@@ -136,10 +141,11 @@ export default function PostPage() {
   }
 
   async function saveComment(commentId: number) {
+    const body = editCommentRef.current?.value ?? editCommentBody
     await fetch(`/api/posts/${id}/comments/${commentId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ body: editCommentBody }),
+      body: JSON.stringify({ body }),
     })
     setEditingCommentId(null)
     await loadComments()
@@ -159,8 +165,8 @@ export default function PostPage() {
           {isEditing ? (
             <div className="flex flex-col gap-2">
               <textarea
-                value={editCommentBody}
-                onChange={e => setEditCommentBody(e.target.value)}
+                ref={editCommentRef}
+                defaultValue={editCommentBody}
                 rows={3}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-400 resize-none"
               />
@@ -201,9 +207,9 @@ export default function PostPage() {
       <div className="mt-4 mb-6 bg-white border border-gray-200 rounded-xl p-5">
         {editingPost ? (
           <div className="flex flex-col gap-3">
-            <input value={editTitle} onChange={e => setEditTitle(e.target.value)}
+            <input ref={editTitleRef} defaultValue={editTitle}
               className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-gray-400 font-semibold" />
-            <textarea value={editBody} onChange={e => setEditBody(e.target.value)} rows={5}
+            <textarea ref={editBodyRef} defaultValue={editBody} rows={5}
               className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-gray-400 resize-none" />
             <div className="flex gap-2">
               <button onClick={savePost} className="text-sm bg-gray-900 text-white px-4 py-2 rounded-lg hover:bg-gray-700">保存</button>

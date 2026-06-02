@@ -37,9 +37,6 @@ export default async function HomePage() {
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold mb-1">Oxpedia</h1>
-      </div>
 
       <div className="grid grid-cols-2 gap-3">
         {(categories || []).map((cat) => {

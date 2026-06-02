@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { Item, Review, Category } from '@/types'
 
-type Tab = 'reviews' | 'items' | 'stats'
+type Tab = 'reviews' | 'items' | 'stats' | 'categories'
 
 export default function AdminPage() {
   const [authed, setAuthed] = useState(false)
@@ -19,6 +19,10 @@ export default function AdminPage() {
   const [editItem, setEditItem] = useState<Item | null>(null)
   const [editName, setEditName] = useState('')
   const [editDesc, setEditDesc] = useState('')
+  const [newCatName, setNewCatName] = useState('')
+  const [newCatSlug, setNewCatSlug] = useState('')
+  const [newCatError, setNewCatError] = useState('')
+  const [newCatSuccess, setNewCatSuccess] = useState('')
 
   async function login() {
     const res = await fetch('/api/admin/login', {
@@ -137,10 +141,11 @@ export default function AdminPage() {
         <button onClick={() => setAuthed(false)} className="text-sm text-gray-400 hover:text-gray-600">退出</button>
       </div>
 
-      <div className="flex gap-2 mb-6">
+      <div className="flex gap-2 mb-6 flex-wrap">
         <button className={tabCls('reviews')} onClick={() => setTab('reviews')}>评价管理</button>
         <button className={tabCls('items')} onClick={() => setTab('items')}>条目管理</button>
         <button className={tabCls('stats')} onClick={() => setTab('stats')}>数据统计</button>
+        <button className={tabCls('categories')} onClick={() => setTab('categories')}>分类管理</button>
       </div>
 
       {tab === 'reviews' && (
@@ -230,6 +235,78 @@ export default function AdminPage() {
               </div>
             )
           })}
+        </div>
+      )}
+
+      {tab === 'categories' && (
+        <div>
+          {/* 现有分类 */}
+          <div className="flex flex-col gap-2 mb-6">
+            {categories.map(cat => (
+              <div key={cat.id} className="bg-white border border-gray-200 rounded-xl px-5 py-3 flex items-center justify-between">
+                <div>
+                  <div className="font-medium">{cat.name}</div>
+                  <div className="text-xs text-gray-400 mt-0.5">/{cat.slug}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* 添加新分类 */}
+          <div className="bg-white border border-gray-200 rounded-xl p-5">
+            <h2 className="font-semibold mb-4">添加新分类</h2>
+            <div className="flex flex-col gap-3">
+              <div>
+                <label className="block text-sm font-medium mb-1.5">分类名称 <span className="text-red-400">*</span></label>
+                <input
+                  type="text"
+                  value={newCatName}
+                  onChange={e => setNewCatName(e.target.value)}
+                  placeholder="例如：活动 / 图书馆"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-gray-400"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1.5">英文标识 <span className="text-red-400">*</span></label>
+                <input
+                  type="text"
+                  value={newCatSlug}
+                  onChange={e => setNewCatSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                  placeholder="例如：events / library（仅英文小写）"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-gray-400"
+                />
+              </div>
+              {newCatError && <p className="text-red-500 text-sm">{newCatError}</p>}
+              {newCatSuccess && <p className="text-green-600 text-sm">{newCatSuccess}</p>}
+              <button
+                onClick={async () => {
+                  setNewCatError('')
+                  setNewCatSuccess('')
+                  if (!newCatName.trim() || !newCatSlug.trim()) {
+                    setNewCatError('请填写分类名称和英文标识')
+                    return
+                  }
+                  const res = await fetch('/api/admin/categories', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: newCatName, slug: newCatSlug }),
+                  })
+                  const json = await res.json()
+                  if (!res.ok) {
+                    setNewCatError(json.error || '添加失败')
+                  } else {
+                    setNewCatSuccess(`"${newCatName}" 添加成功！`)
+                    setNewCatName('')
+                    setNewCatSlug('')
+                    setCategories(prev => [...prev, json.data])
+                  }
+                }}
+                className="bg-gray-900 text-white text-sm px-5 py-2.5 rounded-lg hover:bg-gray-700 transition-colors self-start"
+              >
+                添加分类
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

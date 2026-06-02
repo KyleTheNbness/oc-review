@@ -28,6 +28,9 @@ export default function AdminPage() {
   const [editItem, setEditItem] = useState<Item | null>(null)
   const [editName, setEditName] = useState('')
   const [editDesc, setEditDesc] = useState('')
+  const [editCatId, setEditCatId] = useState<number | null>(null)
+  const [editCatName, setEditCatName] = useState('')
+  const [editCatSlug, setEditCatSlug] = useState('')
   const [newCatName, setNewCatName] = useState('')
   const [newCatSlug, setNewCatSlug] = useState('')
   const [newCatError, setNewCatError] = useState('')
@@ -256,25 +259,69 @@ export default function AdminPage() {
           {/* 现有分类 */}
           <div className="flex flex-col gap-2 mb-6">
             {categories.map(cat => (
-              <div key={cat.id} className="bg-white border border-gray-200 rounded-xl px-5 py-3 flex items-center justify-between">
-                <div>
-                  <div className="font-medium">{cat.name}</div>
-                  <div className="text-xs text-gray-400 mt-0.5">/{cat.slug}</div>
-                </div>
-                <button
-                  onClick={async () => {
-                    if (!confirm(`确定删除「${cat.name}」分类？该分类下所有条目和评价也会被删除。`)) return
-                    const res = await fetch(`/api/admin/categories/${cat.id}`, { method: 'DELETE' })
-                    if (res.ok) {
-                      setCategories(prev => prev.filter(c => c.id !== cat.id))
-                    } else {
-                      alert('删除失败，请重试')
-                    }
-                  }}
-                  className="text-xs px-3 py-1.5 rounded-lg border border-red-300 text-red-600 hover:bg-red-50 transition-colors"
-                >
-                  删除
-                </button>
+              <div key={cat.id} className="bg-white border border-gray-200 rounded-xl px-5 py-3">
+                {editCatId === cat.id ? (
+                  <div className="flex flex-col gap-2">
+                    <input
+                      value={editCatName}
+                      onChange={e => setEditCatName(e.target.value)}
+                      placeholder="分类名称"
+                      className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-400"
+                    />
+                    <input
+                      value={editCatSlug}
+                      onChange={e => setEditCatSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                      placeholder="英文标识"
+                      className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-400"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={async () => {
+                          const res = await fetch(`/api/admin/categories/${cat.id}`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ name: editCatName, slug: editCatSlug }),
+                          })
+                          if (res.ok) {
+                            setCategories(prev => prev.map(c =>
+                              c.id === cat.id ? { ...c, name: editCatName, slug: editCatSlug || c.slug } : c
+                            ))
+                            setEditCatId(null)
+                          } else {
+                            alert('更新失败，请重试')
+                          }
+                        }}
+                        className="text-sm bg-gray-900 text-white px-4 py-1.5 rounded-lg hover:bg-gray-700"
+                      >保存</button>
+                      <button onClick={() => setEditCatId(null)} className="text-sm text-gray-500 px-4 py-1.5 hover:text-gray-700">取消</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-medium">{cat.name}</div>
+                      <div className="text-xs text-gray-400 mt-0.5">/{cat.slug}</div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => { setEditCatId(cat.id); setEditCatName(cat.name); setEditCatSlug(cat.slug) }}
+                        className="text-xs px-3 py-1.5 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50"
+                      >编辑</button>
+                      <button
+                        onClick={async () => {
+                          if (!confirm(`确定删除「${cat.name}」分类？该分类下所有条目和评价也会被删除。`)) return
+                          const res = await fetch(`/api/admin/categories/${cat.id}`, { method: 'DELETE' })
+                          if (res.ok) {
+                            setCategories(prev => prev.filter(c => c.id !== cat.id))
+                          } else {
+                            alert('删除失败，请重试')
+                          }
+                        }}
+                        className="text-xs px-3 py-1.5 rounded-lg border border-red-300 text-red-600 hover:bg-red-50"
+                      >删除</button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>

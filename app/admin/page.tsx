@@ -261,6 +261,20 @@ export default function AdminPage() {
                   <div className="font-medium">{cat.name}</div>
                   <div className="text-xs text-gray-400 mt-0.5">/{cat.slug}</div>
                 </div>
+                <button
+                  onClick={async () => {
+                    if (!confirm(`确定删除「${cat.name}」分类？该分类下所有条目和评价也会被删除。`)) return
+                    const res = await fetch(`/api/admin/categories/${cat.id}`, { method: 'DELETE' })
+                    if (res.ok) {
+                      setCategories(prev => prev.filter(c => c.id !== cat.id))
+                    } else {
+                      alert('删除失败，请重试')
+                    }
+                  }}
+                  className="text-xs px-3 py-1.5 rounded-lg border border-red-300 text-red-600 hover:bg-red-50 transition-colors"
+                >
+                  删除
+                </button>
               </div>
             ))}
           </div>

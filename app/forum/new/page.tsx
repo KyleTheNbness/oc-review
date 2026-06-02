@@ -3,8 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-
-const MY_POSTS_KEY = 'oc_my_posts'
+import { getUserToken } from '@/lib/userToken'
 
 export default function NewPostPage() {
   const router = useRouter()
@@ -21,7 +20,7 @@ export default function NewPostPage() {
     const res = await fetch('/api/posts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, body }),
+      body: JSON.stringify({ title, body, user_token: getUserToken() }),
     })
     const json = await res.json()
 
@@ -29,10 +28,6 @@ export default function NewPostPage() {
       setError(json.error || '发布失败')
       setSubmitting(false)
     } else {
-      try {
-        const arr = JSON.parse(localStorage.getItem(MY_POSTS_KEY) || '[]')
-        localStorage.setItem(MY_POSTS_KEY, JSON.stringify([json.id, ...arr]))
-      } catch {}
       router.push(`/forum/${json.id}`)
     }
   }

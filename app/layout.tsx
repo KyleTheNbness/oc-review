@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import NotificationBell from "@/components/NotificationBell";
 
 export const metadata: Metadata = {
   title: "OC 测评",
@@ -17,7 +18,10 @@ export default function RootLayout({
         <header className="bg-white border-b border-gray-200">
           <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
             <a href="/" className="text-lg font-semibold tracking-tight">OC 测评</a>
-            <span className="text-sm text-gray-400">Oxford College · Emory</span>
+            <div className="flex items-center gap-3">
+              <NotificationBell />
+              <span className="text-sm text-gray-400">Oxford College · Emory</span>
+            </div>
           </div>
         </header>
         <main className="max-w-2xl mx-auto px-4 py-6">

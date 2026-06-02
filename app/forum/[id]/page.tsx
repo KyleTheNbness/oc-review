@@ -4,27 +4,15 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import { getUserToken } from '@/lib/userToken'
 
-const MY_POSTS_KEY = 'oc_my_posts'
-const MY_COMMENTS_KEY = 'oc_my_comments'
-
-function getArr(key: string): number[] {
-  try { return JSON.parse(localStorage.getItem(key) || '[]') } catch { return [] }
-}
-function addToArr(key: string, id: number) {
-  const arr = getArr(key)
-  if (!arr.includes(id)) localStorage.setItem(key, JSON.stringify([...arr, id]))
-}
-function removeFromArr(key: string, id: number) {
-  localStorage.setItem(key, JSON.stringify(getArr(key).filter(x => x !== id)))
-}
-
-interface Post { id: number; title: string; body: string | null; created_at: string }
+interface Post { id: number; title: string; body: string | null; created_at: string; user_token: string | null }
 interface Comment {
   id: number
   body: string
   created_at: string
   parent_id: number | null
+  user_token: string | null
   replies?: Comment[]
 }
 
@@ -49,8 +37,7 @@ export default function PostPage() {
 
   const [post, setPost] = useState<Post | null>(null)
   const [comments, setComments] = useState<Comment[]>([])
-  const [myPostIds, setMyPostIds] = useState<number[]>([])
-  const [myCommentIds, setMyCommentIds] = useState<number[]>([])
+  const [myToken, setMyToken] = useState('')
   const [loading, setLoading] = useState(true)
 
   // 新回复
@@ -82,13 +69,12 @@ export default function PostPage() {
   }
 
   useEffect(() => {
+    setMyToken(getUserToken())
     async function load() {
       const { data: postData } = await supabase
         .from('posts').select('*').eq('id', id).eq('is_hidden', false).single()
       setPost(postData)
       await loadComments()
-      setMyPostIds(getArr(MY_POSTS_KEY))
-      setMyCommentIds(getArr(MY_COMMENTS_KEY))
       setLoading(false)
     }
     load()
@@ -101,12 +87,10 @@ export default function PostPage() {
     const res = await fetch(`/api/posts/${id}/comments`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ body, parent_id: replyTo?.id || null }),
+      body: JSON.stringify({ body, parent_id: replyTo?.id || null, user_token: myToken }),
     })
     const json = await res.json()
     if (!res.ok) { setError(json.error || '提交失败'); setSubmitting(false); return }
-    addToArr(MY_COMMENTS_KEY, json.id)
-    setMyCommentIds(getArr(MY_COMMENTS_KEY))
     setBody('')
     setReplyTo(null)
     await loadComments()
@@ -115,8 +99,11 @@ export default function PostPage() {
 
   async function deletePost() {
     if (!confirm('确定删除这篇帖子吗？')) return
-    await fetch(`/api/posts/${id}`, { method: 'DELETE' })
-    removeFromArr(MY_POSTS_KEY, id)
+    await fetch(`/api/posts/${id}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_token: myToken }),
+    })
     router.push('/forum')
   }
 
@@ -126,7 +113,7 @@ export default function PostPage() {
     await fetch(`/api/posts/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, body }),
+      body: JSON.stringify({ title, body, user_token: myToken }),
     })
     setPost(p => p ? { ...p, title, body: body || null } : p)
     setEditingPost(false)
@@ -134,9 +121,11 @@ export default function PostPage() {
 
   async function deleteComment(commentId: number) {
     if (!confirm('确定删除这条回复吗？')) return
-    await fetch(`/api/posts/${id}/comments/${commentId}`, { method: 'DELETE' })
-    removeFromArr(MY_COMMENTS_KEY, commentId)
-    setMyCommentIds(getArr(MY_COMMENTS_KEY))
+    await fetch(`/api/posts/${id}/comments/${commentId}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_token: myToken }),
+    })
     await loadComments()
   }
 
@@ -145,7 +134,7 @@ export default function PostPage() {
     await fetch(`/api/posts/${id}/comments/${commentId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ body }),
+      body: JSON.stringify({ body, user_token: myToken }),
     })
     setEditingCommentId(null)
     await loadComments()
@@ -154,10 +143,10 @@ export default function PostPage() {
   if (loading) return <div className="text-gray-400 text-sm py-16 text-center">加载中…</div>
   if (!post) return <div className="text-center py-16 text-gray-400 text-sm">帖子不存在</div>
 
-  const isMinePost = myPostIds.includes(id)
+  const isMinePost = myToken && post.user_token === myToken
 
   function CommentNode({ c, depth = 0 }: { c: Comment; depth?: number }) {
-    const isMine = myCommentIds.includes(c.id)
+    const isMine = myToken && c.user_token === myToken
     const isEditing = editingCommentId === c.id
     return (
       <div className={depth > 0 ? 'ml-4 border-l-2 border-gray-100 pl-3' : ''}>

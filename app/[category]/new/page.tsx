@@ -4,7 +4,10 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import { getUserToken } from '@/lib/userToken'
 import type { Category } from '@/types'
+
+const MY_ITEMS_KEY = 'oc_my_items'
 
 export default function NewItemPage() {
   const params = useParams()
@@ -28,23 +31,29 @@ export default function NewItemPage() {
     setSubmitting(true)
     setError('')
 
-    const { data, error: err } = await supabase
-      .from('items')
-      .insert({
+    const res = await fetch('/api/items', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         category_id: category.id,
         name: name.trim(),
         description: description.trim() || null,
-        created_by: 'anonymous',
-      })
-      .select()
-      .single()
+        user_token: getUserToken(),
+      }),
+    })
+    const json = await res.json()
 
-    if (err || !data) {
-      setError('提交失败，请重试')
+    if (!res.ok) {
+      setError(json.error || '提交失败，请重试')
       setSubmitting(false)
       return
     }
-    router.push(`/${slug}/${data.id}`)
+
+    try {
+      const arr = JSON.parse(localStorage.getItem(MY_ITEMS_KEY) || '[]')
+      localStorage.setItem(MY_ITEMS_KEY, JSON.stringify([json.id, ...arr]))
+    } catch {}
+    router.push(`/${slug}/${json.id}`)
   }
 
   return (

@@ -12,6 +12,7 @@ export interface Item {
   created_at: string
   created_by: string
   is_hidden: boolean
+  user_token: string | null
   category?: Category
   avg_rating?: number
   review_count?: number
@@ -24,6 +25,7 @@ export interface Review {
   body: string | null
   created_at: string
   is_hidden: boolean
+  user_token: string | null
 }
 
 export interface AdminUser {

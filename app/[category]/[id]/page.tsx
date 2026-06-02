@@ -1,34 +1,23 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import { getUserToken } from '@/lib/userToken'
 import type { Item, Review } from '@/types'
 import StarDisplay from '@/components/StarDisplay'
 import StarPicker from '@/components/StarPicker'
 
-const MY_REVIEWS_KEY = 'oc_my_reviews'
-
-function getMyReviews(): number[] {
-  try { return JSON.parse(localStorage.getItem(MY_REVIEWS_KEY) || '[]') } catch { return [] }
-}
-function addMyReview(id: number) {
-  const arr = getMyReviews()
-  if (!arr.includes(id)) localStorage.setItem(MY_REVIEWS_KEY, JSON.stringify([...arr, id]))
-}
-function removeMyReview(id: number) {
-  localStorage.setItem(MY_REVIEWS_KEY, JSON.stringify(getMyReviews().filter(x => x !== id)))
-}
-
 export default function ItemPage() {
   const params = useParams()
+  const router = useRouter()
   const slug = params.category as string
   const id = Number(params.id)
 
   const [item, setItem] = useState<Item | null>(null)
   const [reviews, setReviews] = useState<Review[]>([])
-  const [myReviewIds, setMyReviewIds] = useState<number[]>([])
+  const [myToken, setMyToken] = useState('')
   const [loading, setLoading] = useState(true)
 
   // 写评价
@@ -37,10 +26,15 @@ export default function ItemPage() {
   const [submitting, setSubmitting] = useState(false)
   const [submitMsg, setSubmitMsg] = useState('')
 
-  // 编辑状态
+  // 编辑评价
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editRating, setEditRating] = useState(0)
   const [editBody, setEditBody] = useState('')
+
+  // 编辑条目
+  const [editingItem, setEditingItem] = useState(false)
+  const [editName, setEditName] = useState('')
+  const [editDesc, setEditDesc] = useState('')
 
   async function loadReviews() {
     const { data } = await supabase
@@ -53,12 +47,12 @@ export default function ItemPage() {
   }
 
   useEffect(() => {
+    setMyToken(getUserToken())
     async function load() {
       const { data: itemData } = await supabase
         .from('items').select('*').eq('id', id).eq('is_hidden', false).single()
       setItem(itemData)
       await loadReviews()
-      setMyReviewIds(getMyReviews())
       setLoading(false)
     }
     load()
@@ -76,15 +70,13 @@ export default function ItemPage() {
     const res = await fetch('/api/reviews', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ item_id: id, rating, body: body.trim() }),
+      body: JSON.stringify({ item_id: id, rating, body: body.trim(), user_token: myToken }),
     })
     const json = await res.json()
     if (!res.ok) {
       setSubmitMsg(json.error || '提交失败，请重试')
     } else {
       setSubmitMsg('评价已提交！')
-      addMyReview(json.id)
-      setMyReviewIds(getMyReviews())
       setRating(0)
       setBody('')
       await loadReviews()
@@ -94,9 +86,11 @@ export default function ItemPage() {
 
   async function deleteReview(reviewId: number) {
     if (!confirm('确定删除这条评价吗？')) return
-    await fetch(`/api/reviews/${reviewId}`, { method: 'DELETE' })
-    removeMyReview(reviewId)
-    setMyReviewIds(getMyReviews())
+    await fetch(`/api/reviews/${reviewId}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_token: myToken }),
+    })
     await loadReviews()
   }
 
@@ -104,22 +98,78 @@ export default function ItemPage() {
     await fetch(`/api/reviews/${reviewId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rating: editRating, body: editBody }),
+      body: JSON.stringify({ rating: editRating, body: editBody, user_token: myToken }),
     })
     setEditingId(null)
     await loadReviews()
   }
 
+  async function deleteItem() {
+    if (!confirm('确定删除这个条目吗？（同时会删除所有相关评价）')) return
+    await fetch(`/api/items/${id}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_token: myToken }),
+    })
+    router.push(`/${slug}`)
+  }
+
+  async function saveItem() {
+    if (!editName.trim()) return
+    await fetch(`/api/items/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: editName, description: editDesc, user_token: myToken }),
+    })
+    setItem(p => p ? { ...p, name: editName, description: editDesc || null } : p)
+    setEditingItem(false)
+  }
+
   if (loading) return <div className="text-gray-400 text-sm py-16 text-center">加载中…</div>
   if (!item) return <div className="text-center py-16 text-gray-400 text-sm">条目不存在</div>
+
+  const isMineItem = myToken && item.user_token === myToken
 
   return (
     <div>
       <Link href={`/${slug}`} className="text-sm text-gray-400 hover:text-gray-600">← 返回</Link>
 
       <div className="mt-4 mb-6">
-        <h1 className="text-2xl font-bold">{item.name}</h1>
-        {item.description && <p className="text-gray-500 text-sm mt-1">{item.description}</p>}
+        {editingItem ? (
+          <div className="flex flex-col gap-3">
+            <input
+              value={editName}
+              onChange={e => setEditName(e.target.value)}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-gray-400 font-bold text-xl"
+            />
+            <input
+              value={editDesc}
+              onChange={e => setEditDesc(e.target.value)}
+              placeholder="简短描述（可选）"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-gray-400 text-gray-500"
+            />
+            <div className="flex gap-2">
+              <button onClick={saveItem} className="text-sm bg-gray-900 text-white px-4 py-2 rounded-lg hover:bg-gray-700">保存</button>
+              <button onClick={() => setEditingItem(false)} className="text-sm text-gray-500 px-4 py-2">取消</button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-start justify-between gap-2">
+              <h1 className="text-2xl font-bold">{item.name}</h1>
+              {isMineItem && (
+                <div className="flex gap-2 shrink-0 mt-1">
+                  <button
+                    onClick={() => { setEditingItem(true); setEditName(item.name); setEditDesc(item.description || '') }}
+                    className="text-xs text-gray-400 hover:text-gray-600"
+                  >编辑</button>
+                  <button onClick={deleteItem} className="text-xs text-red-400 hover:text-red-600">删除</button>
+                </div>
+              )}
+            </div>
+            {item.description && <p className="text-gray-500 text-sm mt-1">{item.description}</p>}
+          </>
+        )}
         <div className="mt-4 flex items-center gap-3">
           {avgRating !== null ? (
             <>
@@ -170,7 +220,7 @@ export default function ItemPage() {
         ) : (
           <div className="flex flex-col gap-3">
             {reviews.map(review => {
-              const isMine = myReviewIds.includes(review.id)
+              const isMine = myToken && review.user_token === myToken
               const isEditing = editingId === review.id
 
               return (

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase'
 
 export async function POST(req: NextRequest) {
-  const { item_id, rating, body } = await req.json()
+  const { item_id, rating, body, user_token } = await req.json()
 
   if (!item_id || !rating || rating < 0.5 || rating > 5) {
     return NextResponse.json({ error: '参数错误' }, { status: 400 })
@@ -32,6 +32,7 @@ export async function POST(req: NextRequest) {
     rating,
     body: body || null,
     ip_address: ip,
+    user_token: user_token || null,
   }).select().single()
 
   if (error) {

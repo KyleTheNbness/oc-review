@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase'
 
 export async function POST(req: NextRequest) {
-  const { title, body } = await req.json()
+  const { title, body, user_token } = await req.json()
 
   if (!title?.trim()) {
     return NextResponse.json({ error: '请填写标题' }, { status: 400 })
@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('posts')
-    .insert({ title: title.trim(), body: body?.trim() || null })
+    .insert({ title: title.trim(), body: body?.trim() || null, user_token: user_token || null })
     .select()
     .single()
 

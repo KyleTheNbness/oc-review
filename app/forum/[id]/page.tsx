@@ -37,8 +37,13 @@ export default function PostPage() {
 
   const [post, setPost] = useState<Post | null>(null)
   const [comments, setComments] = useState<Comment[]>([])
+  const [flatComments, setFlatComments] = useState<Comment[]>([])
   const [myToken, setMyToken] = useState('')
   const [loading, setLoading] = useState(true)
+
+  // 点赞
+  const [likeCounts, setLikeCounts] = useState<Record<number, number>>({})
+  const [likedIds, setLikedIds] = useState<Set<number>>(new Set())
 
   // 新回复
   const [replyTo, setReplyTo] = useState<{ id: number; preview: string } | null>(null)
@@ -58,27 +63,74 @@ export default function PostPage() {
   const [editCommentBody, setEditCommentBody] = useState('')
   const editCommentRef = useRef<HTMLTextAreaElement>(null)
 
-  async function loadComments() {
+  async function loadLikes(flat: Comment[], token?: string) {
+    if (flat.length === 0) return
+    const ids = flat.map(c => c.id)
+
+    const { data: likesData } = await supabase
+      .from('likes')
+      .select('target_id')
+      .eq('target_type', 'comment')
+      .in('target_id', ids)
+
+    const counts: Record<number, number> = {}
+    ids.forEach(i => { counts[i] = 0 })
+    ;(likesData || []).forEach(l => { counts[l.target_id] = (counts[l.target_id] || 0) + 1 })
+    setLikeCounts(counts)
+
+    const t = token || myToken
+    if (t) {
+      const { data: myLikes } = await supabase
+        .from('likes')
+        .select('target_id')
+        .eq('target_type', 'comment')
+        .eq('user_token', t)
+        .in('target_id', ids)
+      setLikedIds(new Set((myLikes || []).map(l => l.target_id)))
+    }
+  }
+
+  async function loadComments(token?: string) {
     const { data } = await supabase
       .from('post_comments')
       .select('*')
       .eq('post_id', id)
       .eq('is_hidden', false)
       .order('created_at', { ascending: true })
-    setComments(buildTree(data || []))
+    const flat = data || []
+    setFlatComments(flat)
+    setComments(buildTree(flat))
+    await loadLikes(flat, token)
   }
 
   useEffect(() => {
-    setMyToken(getUserToken())
+    const t = getUserToken()
+    setMyToken(t)
     async function load() {
       const { data: postData } = await supabase
         .from('posts').select('*').eq('id', id).eq('is_hidden', false).single()
       setPost(postData)
-      await loadComments()
+      await loadComments(t)
       setLoading(false)
     }
     load()
   }, [id])
+
+  async function toggleLike(commentId: number) {
+    if (!myToken) return
+    const res = await fetch('/api/likes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_token: myToken, target_type: 'comment', target_id: commentId }),
+    })
+    const json = await res.json()
+    setLikeCounts(prev => ({ ...prev, [commentId]: json.count }))
+    setLikedIds(prev => {
+      const next = new Set(prev)
+      json.liked ? next.add(commentId) : next.delete(commentId)
+      return next
+    })
+  }
 
   async function submitComment() {
     if (!body.trim()) { setError('请填写内容'); return }
@@ -148,6 +200,9 @@ export default function PostPage() {
   function CommentNode({ c, depth = 0 }: { c: Comment; depth?: number }) {
     const isMine = myToken && c.user_token === myToken
     const isEditing = editingCommentId === c.id
+    const liked = likedIds.has(c.id)
+    const likeCount = likeCounts[c.id] || 0
+
     return (
       <div className={depth > 0 ? 'ml-4 border-l-2 border-gray-100 pl-3' : ''}>
         <div className={`bg-white border rounded-xl px-4 py-3 mb-2 ${isMine ? 'border-amber-200' : 'border-gray-200'}`}>
@@ -169,6 +224,13 @@ export default function PostPage() {
               <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{c.body}</p>
               <div className="flex items-center gap-3 mt-2 flex-wrap">
                 <span className="text-xs text-gray-400">{new Date(c.created_at).toLocaleDateString('zh-CN')}</span>
+                <button
+                  onClick={() => toggleLike(c.id)}
+                  className={`flex items-center gap-1 text-xs transition-colors ${liked ? 'text-rose-500' : 'text-gray-400 hover:text-rose-400'}`}
+                >
+                  <span>{liked ? '❤️' : '🤍'}</span>
+                  {likeCount > 0 && <span>{likeCount}</span>}
+                </button>
                 <button
                   onClick={() => setReplyTo({ id: c.id, preview: c.body.slice(0, 20) })}
                   className="text-xs text-blue-500 hover:text-blue-700"
@@ -225,7 +287,7 @@ export default function PostPage() {
 
       {/* 回复列表 */}
       <div className="mb-6">
-        <h2 className="font-semibold mb-3">回复（{comments.reduce((s, c) => s + 1 + (c.replies?.length || 0), 0)}）</h2>
+        <h2 className="font-semibold mb-3">回复（{flatComments.length}）</h2>
         {comments.length === 0
           ? <div className="text-gray-400 text-sm text-center py-8">暂无回复，来说第一句！</div>
           : comments.map(c => <CommentNode key={c.id} c={c} />)

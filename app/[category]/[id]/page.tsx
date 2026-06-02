@@ -20,6 +20,10 @@ export default function ItemPage() {
   const [myToken, setMyToken] = useState('')
   const [loading, setLoading] = useState(true)
 
+  // 点赞
+  const [likeCounts, setLikeCounts] = useState<Record<number, number>>({})
+  const [likedIds, setLikedIds] = useState<Set<number>>(new Set())
+
   // 写评价
   const [rating, setRating] = useState(0)
   const [body, setBody] = useState('')
@@ -36,23 +40,52 @@ export default function ItemPage() {
   const [editName, setEditName] = useState('')
   const [editDesc, setEditDesc] = useState('')
 
-  async function loadReviews() {
+  async function loadReviews(token?: string) {
     const { data } = await supabase
       .from('reviews')
       .select('*')
       .eq('item_id', id)
       .eq('is_hidden', false)
       .order('created_at', { ascending: false })
-    setReviews(data || [])
+    const list = data || []
+    setReviews(list)
+
+    if (list.length === 0) return
+    const ids = list.map(r => r.id)
+
+    // Fetch like counts
+    const { data: likesData } = await supabase
+      .from('likes')
+      .select('target_id')
+      .eq('target_type', 'review')
+      .in('target_id', ids)
+
+    const counts: Record<number, number> = {}
+    ids.forEach(i => { counts[i] = 0 })
+    ;(likesData || []).forEach(l => { counts[l.target_id] = (counts[l.target_id] || 0) + 1 })
+    setLikeCounts(counts)
+
+    // Fetch my likes
+    const t = token || myToken
+    if (t) {
+      const { data: myLikes } = await supabase
+        .from('likes')
+        .select('target_id')
+        .eq('target_type', 'review')
+        .eq('user_token', t)
+        .in('target_id', ids)
+      setLikedIds(new Set((myLikes || []).map(l => l.target_id)))
+    }
   }
 
   useEffect(() => {
-    setMyToken(getUserToken())
+    const t = getUserToken()
+    setMyToken(t)
     async function load() {
       const { data: itemData } = await supabase
         .from('items').select('*').eq('id', id).eq('is_hidden', false).single()
       setItem(itemData)
-      await loadReviews()
+      await loadReviews(t)
       setLoading(false)
     }
     load()
@@ -61,6 +94,22 @@ export default function ItemPage() {
   const avgRating = reviews.length > 0
     ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length
     : null
+
+  async function toggleLike(reviewId: number) {
+    if (!myToken) return
+    const res = await fetch('/api/likes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_token: myToken, target_type: 'review', target_id: reviewId }),
+    })
+    const json = await res.json()
+    setLikeCounts(prev => ({ ...prev, [reviewId]: json.count }))
+    setLikedIds(prev => {
+      const next = new Set(prev)
+      json.liked ? next.add(reviewId) : next.delete(reviewId)
+      return next
+    })
+  }
 
   async function submitReview() {
     if (rating === 0) { setSubmitMsg('请选择星级评分'); return }
@@ -222,6 +271,8 @@ export default function ItemPage() {
             {reviews.map(review => {
               const isMine = myToken && review.user_token === myToken
               const isEditing = editingId === review.id
+              const liked = likedIds.has(review.id)
+              const likeCount = likeCounts[review.id] || 0
 
               return (
                 <div key={review.id} className={`bg-white border rounded-xl px-5 py-4 ${isMine ? 'border-amber-200' : 'border-gray-200'}`}>
@@ -235,40 +286,33 @@ export default function ItemPage() {
                         className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-400 resize-none"
                       />
                       <div className="flex gap-2">
-                        <button
-                          onClick={() => saveEdit(review.id)}
-                          className="text-sm bg-gray-900 text-white px-4 py-1.5 rounded-lg hover:bg-gray-700"
-                        >保存</button>
-                        <button
-                          onClick={() => setEditingId(null)}
-                          className="text-sm text-gray-500 px-4 py-1.5 hover:text-gray-700"
-                        >取消</button>
+                        <button onClick={() => saveEdit(review.id)} className="text-sm bg-gray-900 text-white px-4 py-1.5 rounded-lg hover:bg-gray-700">保存</button>
+                        <button onClick={() => setEditingId(null)} className="text-sm text-gray-500 px-4 py-1.5 hover:text-gray-700">取消</button>
                       </div>
                     </div>
                   ) : (
                     <>
                       <div className="flex items-center justify-between mb-1">
                         <StarDisplay rating={review.rating} size="sm" />
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-gray-400">
-                            {new Date(review.created_at).toLocaleDateString('zh-CN')}
-                          </span>
-                          {isMine && (
-                            <div className="flex gap-1">
-                              <button
-                                onClick={() => { setEditingId(review.id); setEditRating(review.rating); setEditBody(review.body || '') }}
-                                className="text-xs text-blue-500 hover:text-blue-700"
-                              >编辑</button>
-                              <span className="text-gray-300">|</span>
-                              <button
-                                onClick={() => deleteReview(review.id)}
-                                className="text-xs text-red-400 hover:text-red-600"
-                              >删除</button>
-                            </div>
-                          )}
-                        </div>
+                        <span className="text-xs text-gray-400">{new Date(review.created_at).toLocaleDateString('zh-CN')}</span>
                       </div>
                       {review.body && <p className="text-sm text-gray-700 mt-2 leading-relaxed">{review.body}</p>}
+                      <div className="flex items-center gap-3 mt-3">
+                        <button
+                          onClick={() => toggleLike(review.id)}
+                          className={`flex items-center gap-1 text-xs transition-colors ${liked ? 'text-rose-500' : 'text-gray-400 hover:text-rose-400'}`}
+                        >
+                          <span>{liked ? '❤️' : '🤍'}</span>
+                          <span>{likeCount > 0 ? likeCount : '点赞'}</span>
+                        </button>
+                        {isMine && (
+                          <div className="flex gap-2 ml-auto">
+                            <button onClick={() => { setEditingId(review.id); setEditRating(review.rating); setEditBody(review.body || '') }} className="text-xs text-blue-500 hover:text-blue-700">编辑</button>
+                            <span className="text-gray-300">|</span>
+                            <button onClick={() => deleteReview(review.id)} className="text-xs text-red-400 hover:text-red-600">删除</button>
+                          </div>
+                        )}
+                      </div>
                     </>
                   )}
                 </div>

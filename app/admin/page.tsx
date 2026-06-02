@@ -63,27 +63,37 @@ export default function AdminPage() {
   }
 
   async function toggleReview(id: number, hidden: boolean) {
-    await supabase.from('reviews').update({ is_hidden: hidden }).eq('id', id)
+    await fetch('/api/admin/toggle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ table: 'reviews', id, is_hidden: hidden }),
+    })
     setReviews(prev => prev.map(r => r.id === id ? { ...r, is_hidden: hidden } : r))
   }
 
   async function toggleItem(id: number, hidden: boolean) {
-    await supabase.from('items').update({ is_hidden: hidden }).eq('id', id)
+    await fetch('/api/admin/toggle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ table: 'items', id, is_hidden: hidden }),
+    })
     setItems(prev => prev.map(i => i.id === id ? { ...i, is_hidden: hidden } : i))
   }
 
   async function saveEdit() {
     if (!editItem) return
-    await supabase.from('items').update({
-      name: editName.trim(),
-      description: editDesc.trim() || null,
-    }).eq('id', editItem.id)
+    await fetch('/api/admin/edit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: editItem.id, name: editName, description: editDesc }),
+    })
     setItems(prev => prev.map(i => i.id === editItem.id
       ? { ...i, name: editName.trim(), description: editDesc.trim() || null }
       : i
     ))
     setEditItem(null)
   }
+
 
   if (!authed) {
     return (

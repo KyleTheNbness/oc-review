@@ -33,7 +33,7 @@ export async function POST(
         .from('posts').select('user_token').eq('id', postId).single()
       if (post?.user_token && post.user_token !== user_token) {
         await supabase.from('notifications').insert({
-          recipient_token: post.user_token,
+          user_token: post.user_token,
           type: 'reply_to_post',
           post_id: postId,
           comment_id: data.id,
@@ -45,7 +45,7 @@ export async function POST(
         .from('post_comments').select('user_token').eq('id', parent_id).single()
       if (parentComment?.user_token && parentComment.user_token !== user_token) {
         await supabase.from('notifications').insert({
-          recipient_token: parentComment.user_token,
+          user_token: parentComment.user_token,
           type: 'reply_to_comment',
           post_id: postId,
           comment_id: data.id,

@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
   const { data } = await supabase
     .from('notifications')
     .select('*')
-    .eq('recipient_token', token)
+    .eq('user_token', token)
     .eq('is_read', false)
     .order('created_at', { ascending: false })
 
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
   await supabase
     .from('notifications')
     .update({ is_read: true })
-    .eq('recipient_token', token)
+    .eq('user_token', token)
     .eq('is_read', false)
 
   return NextResponse.json({ ok: true })

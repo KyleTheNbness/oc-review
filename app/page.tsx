@@ -38,7 +38,7 @@ export default async function HomePage() {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-2xl font-bold mb-1">OC 测评</h1>
+        <h1 className="text-2xl font-bold mb-1">Oxpedia</h1>
         <p className="text-gray-500 text-sm">Oxford College 中国留学生匿名测评平台</p>
       </div>
 

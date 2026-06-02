@@ -102,6 +102,9 @@ export default function CategoryPage() {
               <div className="text-right shrink-0 ml-4">
                 {item.avg_rating != null ? (
                   <>
+                    <div className="text-sm font-semibold text-amber-500 text-right">
+                      {Number(item.avg_rating).toFixed(1)}
+                    </div>
                     <StarDisplay rating={item.avg_rating} size="sm" />
                     <div className="text-xs text-gray-400 mt-0.5">{item.review_count} 条评价</div>
                   </>

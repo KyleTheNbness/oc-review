@@ -17,11 +17,11 @@ export default function RootLayout({
       <body className="min-h-screen bg-gray-50 text-gray-900 antialiased">
         <header className="bg-white border-b border-gray-200">
           <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
-            <a href="/" className="text-lg font-semibold tracking-tight">Oxpedia</a>
-            <div className="flex items-center gap-3">
-              <NotificationBell />
-              <span className="text-sm text-gray-400">Oxford College · Emory</span>
+            <div>
+              <a href="/" className="text-lg font-semibold tracking-tight">Oxpedia</a>
+              <p className="text-xs text-gray-400 mt-0.5">Oxford College 中国留学生匿名测评平台</p>
             </div>
+            <NotificationBell />
           </div>
         </header>
         <main className="max-w-2xl mx-auto px-4 py-6">

@@ -52,9 +52,22 @@ export default function CategoryPage() {
     load()
   }, [slug, router])
 
-  const filtered = items.filter(i =>
-    i.name.toLowerCase().includes(search.toLowerCase())
-  )
+  // 按首字母排序并分组
+  const filtered = items
+    .filter(i => i.name.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }))
+
+  // 分组：取第一个字母作为分组键
+  const grouped: { letter: string; items: Item[] }[] = []
+  for (const item of filtered) {
+    const letter = item.name[0]?.toUpperCase() || '#'
+    const last = grouped[grouped.length - 1]
+    if (last && last.letter === letter) {
+      last.items.push(item)
+    } else {
+      grouped.push({ letter, items: [item] })
+    }
+  }
 
   if (loading) return <div className="text-gray-400 text-sm py-16 text-center">加载中…</div>
 
@@ -86,33 +99,42 @@ export default function CategoryPage() {
           {search ? '没有匹配的条目' : '暂无条目，点击右上角添加'}
         </div>
       ) : (
-        <div className="flex flex-col gap-2">
-          {filtered.map(item => (
-            <Link
-              key={item.id}
-              href={`/${slug}/${item.id}`}
-              className="bg-white border border-gray-200 rounded-xl px-5 py-4 flex items-center justify-between hover:border-gray-400 transition-colors"
-            >
-              <div>
-                <div className="font-medium">{item.name}</div>
-                {item.description && (
-                  <div className="text-xs text-gray-400 mt-0.5 line-clamp-1">{item.description}</div>
-                )}
+        <div className="flex flex-col gap-5">
+          {grouped.map(group => (
+            <div key={group.letter}>
+              <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 px-1">
+                {group.letter}
               </div>
-              <div className="text-right shrink-0 ml-4">
-                {item.avg_rating != null ? (
-                  <>
-                    <div className="text-sm font-semibold text-amber-500 text-right">
-                      {Number(item.avg_rating).toFixed(1)}
+              <div className="flex flex-col gap-2">
+                {group.items.map(item => (
+                  <Link
+                    key={item.id}
+                    href={`/${slug}/${item.id}`}
+                    className="bg-white border border-gray-200 rounded-xl px-5 py-4 flex items-center justify-between hover:border-gray-400 transition-colors"
+                  >
+                    <div>
+                      <div className="font-medium">{item.name}</div>
+                      {item.description && (
+                        <div className="text-xs text-gray-400 mt-0.5 line-clamp-1">{item.description}</div>
+                      )}
                     </div>
-                    <StarDisplay rating={item.avg_rating} size="sm" />
-                    <div className="text-xs text-gray-400 mt-0.5">{item.review_count} 条评价</div>
-                  </>
-                ) : (
-                  <div className="text-xs text-gray-400">暂无评价</div>
-                )}
+                    <div className="text-right shrink-0 ml-4">
+                      {item.avg_rating != null ? (
+                        <>
+                          <div className="text-sm font-semibold text-amber-500 text-right">
+                            {Number(item.avg_rating).toFixed(1)}
+                          </div>
+                          <StarDisplay rating={item.avg_rating} size="sm" />
+                          <div className="text-xs text-gray-400 mt-0.5">{item.review_count} 条评价</div>
+                        </>
+                      ) : (
+                        <div className="text-xs text-gray-400">暂无评价</div>
+                      )}
+                    </div>
+                  </Link>
+                ))}
               </div>
-            </Link>
+            </div>
           ))}
         </div>
       )}

@@ -74,11 +74,11 @@ export default async function HomePage() {
         <div className="text-xs text-gray-400 mt-1">Tips、问题、随便聊</div>
       </Link>
 
-      <div className="mt-8 rounded-xl border border-gray-200 bg-white px-5 py-4 text-xs text-gray-400 leading-relaxed space-y-1">
+      <div className="mt-8 rounded-xl border border-gray-200 bg-white px-5 py-4 text-xs text-gray-400 leading-relaxed [&>p]:m-0 space-y-1">
         <p>· 本站内容均为用户匿名提交，不代表任何官方立场^ ^</p>
         <p>· 课程、教授评价因人而异，仅供参考。不要把任何一面之词当作确凿的真理。</p>
         <p>· 请文明，认真发言，共同维护良好的社区环境。</p>
-        <p>· 如发现不实或不当内容，或者有任何建议（例如想要新开某个板块），请在下方联系管理员。</p>
+        <p>· 如发现不实或不当内容，或有任何建议（例如想新开某个板块），请在下方联系管理员。</p>
       </div>
 
       <div className="mt-4 text-center">

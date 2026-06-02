@@ -66,6 +66,14 @@ export default async function HomePage() {
         </div>
       )}
 
+      <Link
+        href="/forum"
+        className="mt-3 block bg-white rounded-xl border border-gray-200 p-5 hover:border-gray-400 transition-colors"
+      >
+        <div className="font-semibold text-base">论坛</div>
+        <div className="text-xs text-gray-400 mt-1">Tips、问题、随便聊</div>
+      </Link>
+
       <div className="mt-8 rounded-xl border border-gray-200 bg-white px-5 py-4 text-xs text-gray-400 leading-relaxed space-y-1">
         <p>· 本站内容均为用户匿名提交，不代表任何官方立场。</p>
         <p>· 课程、教授评价因人而异，仅供参考，不保证信息的准确性与时效性。</p>

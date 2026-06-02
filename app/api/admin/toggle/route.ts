@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: '参数错误' }, { status: 400 })
   }
 
-  if (!['items', 'reviews'].includes(table)) {
+  if (!['items', 'reviews', 'posts', 'post_comments'].includes(table)) {
     return NextResponse.json({ error: '非法表名' }, { status: 400 })
   }
 

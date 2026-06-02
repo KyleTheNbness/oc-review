@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { Item, Review, Category } from '@/types'
 
-type Tab = 'reviews' | 'items' | 'stats' | 'categories' | 'messages'
+type Tab = 'reviews' | 'items' | 'stats' | 'categories' | 'messages' | 'forum'
 
 interface Message {
   id: number
@@ -38,6 +38,8 @@ export default function AdminPage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [replyingId, setReplyingId] = useState<number | null>(null)
   const [replyText, setReplyText] = useState('')
+  const [posts, setPosts] = useState<any[]>([])
+  const [postComments, setPostComments] = useState<any[]>([])
 
   async function login() {
     const res = await fetch('/api/admin/login', {
@@ -72,6 +74,8 @@ export default function AdminPage() {
       }))
     )
     setMessages(json.messages || [])
+    setPosts(json.posts || [])
+    setPostComments((json.postComments || []).map((c: any) => ({ ...c, post_title: c.posts?.title })))
   }
 
   async function toggleReview(id: number, hidden: boolean) {
@@ -154,6 +158,7 @@ export default function AdminPage() {
         <button className={tabCls('items')} onClick={() => setTab('items')}>条目管理</button>
         <button className={tabCls('stats')} onClick={() => setTab('stats')}>数据统计</button>
         <button className={tabCls('categories')} onClick={() => setTab('categories')}>分类管理</button>
+        <button className={tabCls('forum')} onClick={() => setTab('forum')}>论坛管理</button>
         <button className={tabCls('messages')} onClick={() => setTab('messages')}>
           消息
           {messages.filter(m => !m.reply).length > 0 && (
@@ -443,6 +448,69 @@ export default function AdminPage() {
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {tab === 'forum' && (
+        <div className="flex flex-col gap-4">
+          <div>
+            <h2 className="font-semibold mb-2">帖子</h2>
+            <div className="flex flex-col gap-2">
+              {posts.map(post => (
+                <div key={post.id} className={`bg-white border rounded-xl px-4 py-3 ${post.is_hidden ? 'opacity-40' : 'border-gray-200'}`}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm">{post.title}</div>
+                      {post.body && <div className="text-xs text-gray-400 mt-0.5 line-clamp-1">{post.body}</div>}
+                      <div className="text-xs text-gray-400 mt-0.5">{new Date(post.created_at).toLocaleDateString('zh-CN')}</div>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        await fetch('/api/admin/toggle', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ table: 'posts', id: post.id, is_hidden: !post.is_hidden }),
+                        })
+                        setPosts(prev => prev.map(p => p.id === post.id ? { ...p, is_hidden: !p.is_hidden } : p))
+                      }}
+                      className={`shrink-0 text-xs px-3 py-1.5 rounded-lg border transition-colors ${post.is_hidden ? 'border-green-300 text-green-700 hover:bg-green-50' : 'border-red-300 text-red-600 hover:bg-red-50'}`}
+                    >
+                      {post.is_hidden ? '恢复' : '隐藏'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <h2 className="font-semibold mb-2">回复</h2>
+            <div className="flex flex-col gap-2">
+              {postComments.map(c => (
+                <div key={c.id} className={`bg-white border rounded-xl px-4 py-3 ${c.is_hidden ? 'opacity-40' : 'border-gray-200'}`}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs text-gray-400 mb-1">{c.post_title} · {new Date(c.created_at).toLocaleDateString('zh-CN')}</div>
+                      <div className="text-sm text-gray-700">{c.body}</div>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        await fetch('/api/admin/toggle', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ table: 'post_comments', id: c.id, is_hidden: !c.is_hidden }),
+                        })
+                        setPostComments(prev => prev.map(x => x.id === c.id ? { ...x, is_hidden: !x.is_hidden } : x))
+                      }}
+                      className={`shrink-0 text-xs px-3 py-1.5 rounded-lg border transition-colors ${c.is_hidden ? 'border-green-300 text-green-700 hover:bg-green-50' : 'border-red-300 text-red-600 hover:bg-red-50'}`}
+                    >
+                      {c.is_hidden ? '恢复' : '隐藏'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </div>

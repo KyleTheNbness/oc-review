@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
+const MY_POSTS_KEY = 'oc_my_posts'
+
 export default function NewPostPage() {
   const router = useRouter()
   const [title, setTitle] = useState('')
@@ -27,6 +29,10 @@ export default function NewPostPage() {
       setError(json.error || '发布失败')
       setSubmitting(false)
     } else {
+      try {
+        const arr = JSON.parse(localStorage.getItem(MY_POSTS_KEY) || '[]')
+        localStorage.setItem(MY_POSTS_KEY, JSON.stringify([json.id, ...arr]))
+      } catch {}
       router.push(`/forum/${json.id}`)
     }
   }

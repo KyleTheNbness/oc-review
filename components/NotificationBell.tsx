@@ -26,6 +26,15 @@ export default function NotificationBell() {
       .then(data => { if (Array.isArray(data)) setNotifications(data) })
   }, [])
 
+  async function markOneRead(id: number) {
+    await fetch('/api/notifications', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, id }),
+    })
+    setNotifications(prev => prev.filter(n => n.id !== id))
+  }
+
   async function markAllRead() {
     if (!token || notifications.length === 0) return
     await fetch('/api/notifications', {
@@ -76,7 +85,7 @@ export default function NotificationBell() {
                 <a
                   key={n.id}
                   href={`/forum/${n.post_id}`}
-                  onClick={() => { setOpen(false); markAllRead() }}
+                  onClick={() => { setOpen(false); markOneRead(n.id) }}
                   className="block px-4 py-3 hover:bg-gray-50 transition-colors"
                 >
                   <p className="text-sm text-gray-700">{label(n)}</p>

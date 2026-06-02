@@ -17,17 +17,19 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(data || [])
 }
 
-// POST /api/notifications/read — mark all as read
+// POST — mark as read (single id or all by token)
 export async function POST(req: NextRequest) {
-  const { token } = await req.json()
+  const { token, id } = await req.json()
   if (!token) return NextResponse.json({ ok: true })
 
   const supabase = createServiceClient()
-  await supabase
-    .from('notifications')
-    .update({ is_read: true })
-    .eq('user_token', token)
-    .eq('is_read', false)
+  const query = supabase.from('notifications').update({ is_read: true }).eq('user_token', token)
+
+  if (id) {
+    await query.eq('id', id)
+  } else {
+    await query.eq('is_read', false)
+  }
 
   return NextResponse.json({ ok: true })
 }

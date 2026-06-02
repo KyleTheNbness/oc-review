@@ -4,7 +4,16 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { Item, Review, Category } from '@/types'
 
-type Tab = 'reviews' | 'items' | 'stats' | 'categories'
+type Tab = 'reviews' | 'items' | 'stats' | 'categories' | 'messages'
+
+interface Message {
+  id: number
+  body: string
+  created_at: string
+  is_read: boolean
+  reply: string | null
+  replied_at: string | null
+}
 
 export default function AdminPage() {
   const [authed, setAuthed] = useState(false)
@@ -23,6 +32,9 @@ export default function AdminPage() {
   const [newCatSlug, setNewCatSlug] = useState('')
   const [newCatError, setNewCatError] = useState('')
   const [newCatSuccess, setNewCatSuccess] = useState('')
+  const [messages, setMessages] = useState<Message[]>([])
+  const [replyingId, setReplyingId] = useState<number | null>(null)
+  const [replyText, setReplyText] = useState('')
 
   async function login() {
     const res = await fetch('/api/admin/login', {
@@ -64,6 +76,12 @@ export default function AdminPage() {
         item_name: r.items?.name,
       }))
     )
+
+    const { data: allMessages } = await supabase
+      .from('messages')
+      .select('*')
+      .order('created_at', { ascending: false })
+    setMessages(allMessages || [])
   }
 
   async function toggleReview(id: number, hidden: boolean) {
@@ -146,6 +164,14 @@ export default function AdminPage() {
         <button className={tabCls('items')} onClick={() => setTab('items')}>条目管理</button>
         <button className={tabCls('stats')} onClick={() => setTab('stats')}>数据统计</button>
         <button className={tabCls('categories')} onClick={() => setTab('categories')}>分类管理</button>
+        <button className={tabCls('messages')} onClick={() => setTab('messages')}>
+          消息
+          {messages.filter(m => !m.reply).length > 0 && (
+            <span className="ml-1.5 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5">
+              {messages.filter(m => !m.reply).length}
+            </span>
+          )}
+        </button>
       </div>
 
       {tab === 'reviews' && (
@@ -307,6 +333,68 @@ export default function AdminPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {tab === 'messages' && (
+        <div className="flex flex-col gap-3">
+          {messages.length === 0 && (
+            <div className="text-center text-gray-400 text-sm py-16">暂无消息</div>
+          )}
+          {messages.map(msg => (
+            <div key={msg.id} className={`bg-white border rounded-xl p-5 ${!msg.reply ? 'border-amber-200' : 'border-gray-200'}`}>
+              <div className="text-sm text-gray-700 leading-relaxed">{msg.body}</div>
+              <div className="text-xs text-gray-400 mt-1">
+                {new Date(msg.created_at).toLocaleDateString('zh-CN')}
+                {!msg.reply && <span className="ml-2 text-amber-500">未回复</span>}
+              </div>
+
+              {msg.reply && (
+                <div className="mt-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+                  <div className="text-xs text-amber-600 font-medium mb-1">你的回复</div>
+                  <div className="text-sm text-gray-700">{msg.reply}</div>
+                </div>
+              )}
+
+              {replyingId === msg.id ? (
+                <div className="mt-3 flex flex-col gap-2">
+                  <textarea
+                    value={replyText}
+                    onChange={e => setReplyText(e.target.value)}
+                    rows={3}
+                    placeholder="输入回复内容…"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-400 resize-none"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={async () => {
+                        if (!replyText.trim()) return
+                        await fetch(`/api/admin/messages/${msg.id}`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ reply: replyText }),
+                        })
+                        setMessages(prev => prev.map(m =>
+                          m.id === msg.id ? { ...m, reply: replyText, replied_at: new Date().toISOString() } : m
+                        ))
+                        setReplyingId(null)
+                        setReplyText('')
+                      }}
+                      className="text-sm bg-gray-900 text-white px-4 py-1.5 rounded-lg hover:bg-gray-700"
+                    >发送回复</button>
+                    <button onClick={() => setReplyingId(null)} className="text-sm text-gray-500 px-4 py-1.5 hover:text-gray-700">取消</button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => { setReplyingId(msg.id); setReplyText(msg.reply || '') }}
+                  className="mt-3 text-xs text-blue-500 hover:text-blue-700"
+                >
+                  {msg.reply ? '修改回复' : '回复'}
+                </button>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>

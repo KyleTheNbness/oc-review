@@ -72,6 +72,12 @@ export default async function HomePage() {
         <p>· 请文明发言，共同维护良好的社区环境。</p>
         <p>· 如发现不实或不当内容，请联系管理员处理。</p>
       </div>
+
+      <div className="mt-4 text-center">
+        <Link href="/contact" className="text-sm text-gray-400 hover:text-gray-600 underline underline-offset-2">
+          联系管理员
+        </Link>
+      </div>
     </div>
   )
 }

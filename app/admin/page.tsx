@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { Item, Review, Category } from '@/types'
 
-type Tab = 'reviews' | 'items' | 'stats' | 'categories' | 'messages' | 'forum'
+type Tab = 'reviews' | 'items' | 'stats' | 'categories' | 'messages' | 'forum' | 'users'
 
 interface Message {
   id: number
@@ -40,6 +40,7 @@ export default function AdminPage() {
   const [replyText, setReplyText] = useState('')
   const [posts, setPosts] = useState<any[]>([])
   const [postComments, setPostComments] = useState<any[]>([])
+  const [expandedUser, setExpandedUser] = useState<string | null>(null)
 
   async function login() {
     const res = await fetch('/api/admin/login', {
@@ -159,6 +160,7 @@ export default function AdminPage() {
         <button className={tabCls('stats')} onClick={() => setTab('stats')}>数据统计</button>
         <button className={tabCls('categories')} onClick={() => setTab('categories')}>分类管理</button>
         <button className={tabCls('forum')} onClick={() => setTab('forum')}>论坛管理</button>
+        <button className={tabCls('users')} onClick={() => setTab('users')}>用户</button>
         <button className={tabCls('messages')} onClick={() => setTab('messages')}>
           消息
           {messages.filter(m => !m.reply).length > 0 && (
@@ -450,6 +452,114 @@ export default function AdminPage() {
           ))}
         </div>
       )}
+
+      {tab === 'users' && (() => {
+        // Collect all unique tokens sorted by first activity
+        const tokenMap: Record<string, { firstSeen: string }> = {}
+        const addToken = (token: string | null, date: string) => {
+          if (!token) return
+          if (!tokenMap[token] || date < tokenMap[token].firstSeen) {
+            tokenMap[token] = { firstSeen: date }
+          }
+        }
+        reviews.forEach(r => addToken((r as any).user_token, r.created_at))
+        items.forEach(i => addToken((i as any).user_token, i.created_at))
+        posts.forEach(p => addToken(p.user_token, p.created_at))
+        postComments.forEach(c => addToken(c.user_token, c.created_at))
+
+        const users = Object.entries(tokenMap)
+          .sort((a, b) => a[1].firstSeen.localeCompare(b[1].firstSeen))
+          .map(([token], idx) => ({ token, label: `用户 #${idx + 1}` }))
+
+        return (
+          <div className="flex flex-col gap-3">
+            {users.length === 0 && <div className="text-center text-gray-400 text-sm py-16">暂无用户数据</div>}
+            {users.map(({ token, label }) => {
+              const userReviews = reviews.filter(r => (r as any).user_token === token)
+              const userItems = items.filter(i => (i as any).user_token === token)
+              const userPosts = posts.filter(p => p.user_token === token)
+              const userComments = postComments.filter(c => c.user_token === token)
+              const isOpen = expandedUser === token
+
+              return (
+                <div key={token} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                  <button
+                    onClick={() => setExpandedUser(isOpen ? null : token)}
+                    className="w-full px-5 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
+                  >
+                    <span className="font-medium text-sm">{label}</span>
+                    <div className="flex items-center gap-3 text-xs text-gray-400">
+                      {userReviews.length > 0 && <span>{userReviews.length} 条评价</span>}
+                      {userItems.length > 0 && <span>{userItems.length} 个条目</span>}
+                      {userPosts.length > 0 && <span>{userPosts.length} 篇帖子</span>}
+                      {userComments.length > 0 && <span>{userComments.length} 条回复</span>}
+                      <span>{isOpen ? '▲' : '▼'}</span>
+                    </div>
+                  </button>
+
+                  {isOpen && (
+                    <div className="border-t border-gray-100 px-5 py-4 flex flex-col gap-4">
+                      {userReviews.length > 0 && (
+                        <div>
+                          <div className="text-xs font-semibold text-gray-500 mb-2">评价</div>
+                          <div className="flex flex-col gap-1.5">
+                            {userReviews.map(r => (
+                              <div key={r.id} className="text-sm bg-gray-50 rounded-lg px-3 py-2">
+                                <span className="text-gray-400 text-xs">{(r as any).item_name} · {'★'.repeat(Math.round(r.rating))} · {new Date(r.created_at).toLocaleDateString('zh-CN')}</span>
+                                <p className="text-gray-700 mt-0.5">{r.body || <span className="text-gray-400 italic">无文字</span>}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {userItems.length > 0 && (
+                        <div>
+                          <div className="text-xs font-semibold text-gray-500 mb-2">添加的条目</div>
+                          <div className="flex flex-col gap-1.5">
+                            {userItems.map(i => (
+                              <div key={i.id} className="text-sm bg-gray-50 rounded-lg px-3 py-2">
+                                <span className="text-gray-400 text-xs">{(i as any).category_name}</span>
+                                <p className="text-gray-700 mt-0.5">{i.name}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {userPosts.length > 0 && (
+                        <div>
+                          <div className="text-xs font-semibold text-gray-500 mb-2">帖子</div>
+                          <div className="flex flex-col gap-1.5">
+                            {userPosts.map(p => (
+                              <div key={p.id} className="text-sm bg-gray-50 rounded-lg px-3 py-2">
+                                <span className="text-gray-400 text-xs">{new Date(p.created_at).toLocaleDateString('zh-CN')}</span>
+                                <p className="text-gray-700 mt-0.5 font-medium">{p.title}</p>
+                                {p.body && <p className="text-gray-500 text-xs mt-0.5 line-clamp-2">{p.body}</p>}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {userComments.length > 0 && (
+                        <div>
+                          <div className="text-xs font-semibold text-gray-500 mb-2">论坛回复</div>
+                          <div className="flex flex-col gap-1.5">
+                            {userComments.map(c => (
+                              <div key={c.id} className="text-sm bg-gray-50 rounded-lg px-3 py-2">
+                                <span className="text-gray-400 text-xs">{c.post_title} · {new Date(c.created_at).toLocaleDateString('zh-CN')}</span>
+                                <p className="text-gray-700 mt-0.5">{c.body}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )
+      })()}
 
       {tab === 'forum' && (
         <div className="flex flex-col gap-4">

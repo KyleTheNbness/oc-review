@@ -35,17 +35,28 @@ export default function CategoryPage() {
         .eq('is_hidden', false)
         .order('created_at', { ascending: false })
 
-      const enriched: Item[] = []
-      for (const item of rawItems || []) {
-        const { data: reviews } = await supabase
+      const items = rawItems || []
+      const itemIds = items.map(i => i.id)
+
+      let reviewsByItem: Record<number, number[]> = {}
+      if (itemIds.length > 0) {
+        const { data: allReviews } = await supabase
           .from('reviews')
-          .select('rating')
-          .eq('item_id', item.id)
+          .select('item_id, rating')
+          .in('item_id', itemIds)
           .eq('is_hidden', false)
-        const count = reviews?.length || 0
-        const avg = count > 0 ? reviews!.reduce((s, r) => s + r.rating, 0) / count : null
-        enriched.push({ ...item, avg_rating: avg ?? undefined, review_count: count })
+        ;(allReviews || []).forEach(r => {
+          if (!reviewsByItem[r.item_id]) reviewsByItem[r.item_id] = []
+          reviewsByItem[r.item_id].push(r.rating)
+        })
       }
+
+      const enriched: Item[] = items.map(item => {
+        const ratings = reviewsByItem[item.id] || []
+        const count = ratings.length
+        const avg = count > 0 ? ratings.reduce((s, r) => s + r, 0) / count : null
+        return { ...item, avg_rating: avg ?? undefined, review_count: count }
+      })
       setItems(enriched)
       setLoading(false)
     }

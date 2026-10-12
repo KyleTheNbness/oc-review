@@ -35,12 +35,12 @@ export default function StarPicker({ value, onChange }: Props) {
             onClick={e => onChange(getValueFromMouse(e, i))}
             onMouseMove={e => setHovered(getValueFromMouse(e, i))}
             onMouseLeave={() => setHovered(0)}
-            className="relative text-2xl w-7 h-7 flex items-center justify-center"
+            className="relative text-2xl w-8 h-8 flex items-center justify-center transition-transform hover:scale-110 active:scale-95"
           >
-            <span className="text-gray-200">★</span>
+            <span className="text-slate-200">★</span>
             {(full || half) && (
               <span
-                className="absolute inset-0 flex items-center justify-center text-amber-400 overflow-hidden"
+                className="absolute inset-0 flex items-center justify-center text-gold-400 overflow-hidden"
                 style={{ width: full ? '100%' : '50%' }}
               >
                 ★
@@ -50,7 +50,7 @@ export default function StarPicker({ value, onChange }: Props) {
         )
       })}
       {display > 0 && (
-        <span className="text-sm text-gray-500 ml-1">{LABELS[display] || ''}</span>
+        <span className="ml-2 rounded-full bg-gold-50 px-2.5 py-0.5 text-xs font-medium text-gold-600">{LABELS[display] || ''}</span>
       )}
     </div>
   )

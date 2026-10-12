@@ -1,5 +1,103 @@
 @import "tailwindcss";
 
+/* ── 主题色：Emory 蓝 + 金 ───────────────────────────── */
+@theme {
+  --color-brand-50: #eef3fb;
+  --color-brand-100: #dbe5f6;
+  --color-brand-200: #b7caec;
+  --color-brand-300: #89a6dc;
+  --color-brand-400: #5a7fc6;
+  --color-brand-500: #3a5fae;
+  --color-brand-600: #22448f;
+  --color-brand-700: #123173;
+  --color-brand-800: #0b2560;
+  --color-brand-900: #061a48;
+
+  --color-gold-50: #fff8e6;
+  --color-gold-100: #feefc2;
+  --color-gold-300: #fbd36b;
+  --color-gold-400: #f6b928;
+  --color-gold-500: #e9a300;
+  --color-gold-600: #c48600;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Segoe UI", sans-serif;
+  background-color: #f6f7fb;
+  background-image:
+    radial-gradient(1200px 380px at 50% -120px, rgba(34, 68, 143, 0.10), transparent 70%),
+    radial-gradient(600px 240px at 90% -60px, rgba(246, 185, 40, 0.10), transparent 70%);
+  background-repeat: no-repeat;
+  -webkit-tap-highlight-color: transparent;
+}
+
+::selection {
+  background: var(--color-gold-100);
+}
+
+/* 通用组件样式（@utility 让它们可以互相组合，也能加 hover: 等前缀） */
+@utility card {
+  @apply bg-white rounded-2xl border border-slate-200/80 shadow-[0_1px_2px_rgba(15,23,42,0.04)];
+}
+
+@utility card-link {
+  @apply card block transition duration-200 ease-out hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-[0_8px_24px_-12px_rgba(18,49,115,0.25)] active:translate-y-0;
+}
+
+@utility btn-primary {
+  @apply inline-flex items-center justify-center gap-1.5 rounded-xl bg-brand-700 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-brand-900/10 transition hover:bg-brand-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50;
+}
+
+@utility btn-secondary {
+  @apply inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900 active:scale-[0.98];
+}
+
+@utility btn-text {
+  @apply text-xs text-slate-400 transition-colors hover:text-slate-700;
+}
+
+@utility btn-danger-text {
+  @apply text-xs text-rose-400 transition-colors hover:text-rose-600;
+}
+
+@utility input {
+  @apply w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-brand-400 focus:ring-4 focus:ring-brand-100;
+}
+
+@utility back-link {
+  @apply inline-flex items-center gap-1 text-sm text-slate-400 transition-colors hover:text-brand-700;
+}
+
+@utility page-title {
+  @apply text-2xl font-bold tracking-tight text-slate-900;
+}
+
+@utility section-title {
+  @apply font-semibold text-slate-800;
+}
+
+@utility muted {
+  @apply text-xs text-slate-400;
+}
+
+@utility skeleton {
+  @apply animate-pulse rounded-lg bg-slate-200/70;
+}
+
+@utility fade-in {
+  animation: fade-in 0.25s ease-out both;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-in, .skeleton { animation: none; }
+  .card-link { transition: none; }
 }

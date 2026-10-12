@@ -5,6 +5,8 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { getUserToken } from '@/lib/userToken'
+import LikeButton from '@/components/LikeButton'
+import { DetailSkeleton } from '@/components/Skeletons'
 
 interface Post { id: number; title: string; body: string | null; created_at: string; user_token: string | null }
 interface Comment {
@@ -67,27 +69,29 @@ export default function PostPage() {
     if (flat.length === 0) return
     const ids = flat.map(c => c.id)
 
-    const { data: likesData } = await supabase
-      .from('likes')
-      .select('target_id')
-      .eq('target_type', 'comment')
-      .in('target_id', ids)
+    const t = token || myToken
+    // 点赞总数和"我赞过的"同时查
+    const [{ data: likesData }, myLikesRes] = await Promise.all([
+      supabase
+        .from('likes')
+        .select('target_id')
+        .eq('target_type', 'comment')
+        .in('target_id', ids),
+      t
+        ? supabase
+            .from('likes')
+            .select('target_id')
+            .eq('target_type', 'comment')
+            .eq('user_token', t)
+            .in('target_id', ids)
+        : Promise.resolve({ data: null }),
+    ])
 
     const counts: Record<number, number> = {}
     ids.forEach(i => { counts[i] = 0 })
     ;(likesData || []).forEach(l => { counts[l.target_id] = (counts[l.target_id] || 0) + 1 })
     setLikeCounts(counts)
-
-    const t = token || myToken
-    if (t) {
-      const { data: myLikes } = await supabase
-        .from('likes')
-        .select('target_id')
-        .eq('target_type', 'comment')
-        .eq('user_token', t)
-        .in('target_id', ids)
-      setLikedIds(new Set((myLikes || []).map(l => l.target_id)))
-    }
+    if (t) setLikedIds(new Set((myLikesRes.data || []).map(l => l.target_id)))
   }
 
   async function loadComments(token?: string) {
@@ -107,10 +111,12 @@ export default function PostPage() {
     const t = getUserToken()
     setMyToken(t)
     async function load() {
-      const { data: postData } = await supabase
-        .from('posts').select('*').eq('id', id).eq('is_hidden', false).single()
+      // 帖子和回复并行加载
+      const [{ data: postData }] = await Promise.all([
+        supabase.from('posts').select('*').eq('id', id).eq('is_hidden', false).single(),
+        loadComments(t),
+      ])
       setPost(postData)
-      await loadComments(t)
       setLoading(false)
     }
     load()
@@ -118,18 +124,31 @@ export default function PostPage() {
 
   async function toggleLike(commentId: number) {
     if (!myToken) return
-    const res = await fetch('/api/likes', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_token: myToken, target_type: 'comment', target_id: commentId }),
-    })
-    const json = await res.json()
-    setLikeCounts(prev => ({ ...prev, [commentId]: json.count }))
-    setLikedIds(prev => {
-      const next = new Set(prev)
-      json.liked ? next.add(commentId) : next.delete(commentId)
-      return next
-    })
+    // 先在界面上立刻变化，再等服务器确认（失败则回滚）
+    const wasLiked = likedIds.has(commentId)
+    const prevCount = likeCounts[commentId] || 0
+    const apply = (liked: boolean, count: number) => {
+      setLikeCounts(prev => ({ ...prev, [commentId]: count }))
+      setLikedIds(prev => {
+        const next = new Set(prev)
+        if (liked) next.add(commentId)
+        else next.delete(commentId)
+        return next
+      })
+    }
+    apply(!wasLiked, Math.max(0, prevCount + (wasLiked ? -1 : 1)))
+    try {
+      const res = await fetch('/api/likes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_token: myToken, target_type: 'comment', target_id: commentId }),
+      })
+      if (!res.ok) throw new Error()
+      const json = await res.json()
+      apply(json.liked, json.count)
+    } catch {
+      apply(wasLiked, prevCount)
+    }
   }
 
   async function submitComment() {
@@ -192,8 +211,8 @@ export default function PostPage() {
     await loadComments()
   }
 
-  if (loading) return <div className="text-gray-400 text-sm py-16 text-center">加载中…</div>
-  if (!post) return <div className="text-center py-16 text-gray-400 text-sm">帖子不存在</div>
+  if (loading) return <DetailSkeleton />
+  if (!post) return <div className="card text-center py-16 text-slate-400 text-sm">帖子不存在</div>
 
   const isMinePost = myToken && post.user_token === myToken
 
@@ -204,42 +223,39 @@ export default function PostPage() {
     const likeCount = likeCounts[c.id] || 0
 
     return (
-      <div className={depth > 0 ? 'ml-4 border-l-2 border-gray-100 pl-3' : ''}>
-        <div className={`bg-white border rounded-xl px-4 py-3 mb-2 ${isMine ? 'border-amber-200' : 'border-gray-200'}`}>
+      <div className={depth > 0 ? 'ml-3 sm:ml-4 border-l-2 border-brand-100 pl-3' : ''}>
+        <div className={`card px-4 py-3 mb-2 ${isMine ? 'border-gold-300 ring-1 ring-gold-100' : ''}`}>
           {isEditing ? (
             <div className="flex flex-col gap-2">
               <textarea
                 ref={editCommentRef}
                 defaultValue={editCommentBody}
                 rows={3}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-400 resize-none"
+                className="input resize-none"
               />
               <div className="flex gap-2">
-                <button onClick={() => saveComment(c.id)} className="text-sm bg-gray-900 text-white px-4 py-1.5 rounded-lg hover:bg-gray-700">保存</button>
-                <button onClick={() => setEditingCommentId(null)} className="text-sm text-gray-500 px-4 py-1.5">取消</button>
+                <button onClick={() => saveComment(c.id)} className="btn-primary py-1.5">保存</button>
+                <button onClick={() => setEditingCommentId(null)} className="btn-secondary py-1.5">取消</button>
               </div>
             </div>
           ) : (
             <>
-              <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{c.body}</p>
+              <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{c.body}</p>
               <div className="flex items-center gap-3 mt-2 flex-wrap">
-                <span className="text-xs text-gray-400">{new Date(c.created_at).toLocaleDateString('zh-CN')}</span>
+                <span className="muted">{new Date(c.created_at).toLocaleDateString('zh-CN')}</span>
+                <LikeButton liked={liked} count={likeCount} onClick={() => toggleLike(c.id)} />
                 <button
-                  onClick={() => toggleLike(c.id)}
-                  className={`flex items-center gap-1 text-xs transition-colors ${liked ? 'text-rose-500' : 'text-gray-400 hover:text-rose-400'}`}
-                >
-                  <span>{liked ? '❤️' : '🤍'}</span>
-                  {likeCount > 0 && <span>{likeCount}</span>}
-                </button>
-                <button
-                  onClick={() => setReplyTo({ id: c.id, preview: c.body.slice(0, 20) })}
-                  className="text-xs text-blue-500 hover:text-blue-700"
+                  onClick={() => {
+                    setReplyTo({ id: c.id, preview: c.body.slice(0, 20) })
+                    document.getElementById('reply-box')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                  }}
+                  className="text-xs font-medium text-brand-600 hover:text-brand-800"
                 >回复</button>
                 {isMine && (
-                  <>
-                    <button onClick={() => { setEditingCommentId(c.id); setEditCommentBody(c.body) }} className="text-xs text-gray-400 hover:text-gray-600">编辑</button>
-                    <button onClick={() => deleteComment(c.id)} className="text-xs text-red-400 hover:text-red-600">删除</button>
-                  </>
+                  <span className="ml-auto flex gap-3">
+                    <button onClick={() => { setEditingCommentId(c.id); setEditCommentBody(c.body) }} className="btn-text">编辑</button>
+                    <button onClick={() => deleteComment(c.id)} className="btn-danger-text">删除</button>
+                  </span>
                 )}
               </div>
             </>
@@ -251,65 +267,62 @@ export default function PostPage() {
   }
 
   return (
-    <div>
-      <Link href="/forum" className="text-sm text-gray-400 hover:text-gray-600">← 返回论坛</Link>
+    <div className="fade-in">
+      <Link href="/forum" className="back-link">← 返回论坛</Link>
 
       {/* 帖子 */}
-      <div className="mt-4 mb-6 bg-white border border-gray-200 rounded-xl p-5">
+      <div className="mt-4 mb-8 card p-5">
         {editingPost ? (
           <div className="flex flex-col gap-3">
-            <input ref={editTitleRef} defaultValue={editTitle}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-gray-400 font-semibold" />
-            <textarea ref={editBodyRef} defaultValue={editBody} rows={5}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-gray-400 resize-none" />
+            <input ref={editTitleRef} defaultValue={editTitle} className="input font-semibold" />
+            <textarea ref={editBodyRef} defaultValue={editBody} rows={5} className="input resize-none" />
             <div className="flex gap-2">
-              <button onClick={savePost} className="text-sm bg-gray-900 text-white px-4 py-2 rounded-lg hover:bg-gray-700">保存</button>
-              <button onClick={() => setEditingPost(false)} className="text-sm text-gray-500 px-4 py-2">取消</button>
+              <button onClick={savePost} className="btn-primary">保存</button>
+              <button onClick={() => setEditingPost(false)} className="btn-secondary">取消</button>
             </div>
           </div>
         ) : (
           <>
-            <h1 className="text-xl font-bold">{post.title}</h1>
-            <div className="flex items-center gap-3 mt-1">
-              <span className="text-xs text-gray-400">{new Date(post.created_at).toLocaleDateString('zh-CN')}</span>
+            <h1 className="page-title text-xl">{post.title}</h1>
+            <div className="flex items-center gap-3 mt-1.5">
+              <span className="muted">{new Date(post.created_at).toLocaleDateString('zh-CN')}</span>
               {isMinePost && (
                 <>
                   <button onClick={() => { setEditingPost(true); setEditTitle(post.title); setEditBody(post.body || '') }}
-                    className="text-xs text-gray-400 hover:text-gray-600">编辑</button>
-                  <button onClick={deletePost} className="text-xs text-red-400 hover:text-red-600">删除</button>
+                    className="btn-text">编辑</button>
+                  <button onClick={deletePost} className="btn-danger-text">删除</button>
                 </>
               )}
             </div>
-            {post.body && <p className="text-sm text-gray-700 mt-3 leading-relaxed whitespace-pre-wrap">{post.body}</p>}
+            {post.body && <p className="text-[15px] text-slate-700 mt-4 leading-relaxed whitespace-pre-wrap">{post.body}</p>}
           </>
         )}
       </div>
 
       {/* 回复列表 */}
       <div className="mb-6">
-        <h2 className="font-semibold mb-3">回复（{flatComments.length}）</h2>
+        <h2 className="section-title mb-3">回复 <span className="text-slate-400 font-normal">· {flatComments.length}</span></h2>
         {comments.length === 0
-          ? <div className="text-gray-400 text-sm text-center py-8">暂无回复，来说第一句！</div>
+          ? <div className="card text-slate-400 text-sm text-center py-10">暂无回复，来说第一句！</div>
           : comments.map(c => <CommentNode key={c.id} c={c} />)
         }
       </div>
 
       {/* 写回复 */}
-      <div className="bg-white border border-gray-200 rounded-xl p-5">
-        <h2 className="font-semibold mb-3">
+      <div id="reply-box" className="card p-5 scroll-mt-24">
+        <h2 className="section-title mb-3">
           {replyTo ? (
             <span className="flex items-center gap-2 flex-wrap">
-              回复：<span className="text-gray-400 font-normal text-sm">「{replyTo.preview}…」</span>
-              <button onClick={() => setReplyTo(null)} className="text-xs text-gray-400 hover:text-gray-600">× 取消</button>
+              回复：<span className="text-slate-400 font-normal text-sm">「{replyTo.preview}…」</span>
+              <button onClick={() => setReplyTo(null)} className="btn-text">× 取消</button>
             </span>
           ) : '写回复'}
         </h2>
         <textarea value={body} onChange={e => setBody(e.target.value)}
           placeholder="说点什么…" rows={3}
-          className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-gray-400 resize-none" />
-        {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
-        <button onClick={submitComment} disabled={submitting}
-          className="mt-3 bg-gray-900 text-white text-sm px-5 py-2.5 rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50">
+          className="input resize-none" />
+        {error && <p className="text-rose-500 text-sm mt-2">{error}</p>}
+        <button onClick={submitComment} disabled={submitting} className="btn-primary mt-3 px-5 py-2.5">
           {submitting ? '提交中…' : '提交回复'}
         </button>
       </div>

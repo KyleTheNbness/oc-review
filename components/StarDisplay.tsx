@@ -15,11 +15,11 @@ export default function StarDisplay({ rating, size = 'sm' }: Props) {
         return (
           <span key={i} className="relative inline-block">
             {/* 底层灰色星 */}
-            <span className="text-gray-200">★</span>
+            <span className="text-slate-200">★</span>
             {/* 覆盖层：全星或半星 */}
             {(full || half) && (
               <span
-                className="absolute inset-0 text-amber-400 overflow-hidden"
+                className="absolute inset-0 text-gold-400 overflow-hidden"
                 style={{ width: full ? '100%' : '50%' }}
               >
                 ★

@@ -33,36 +33,36 @@ export default function NewPostPage() {
   }
 
   return (
-    <div>
-      <Link href="/forum" className="text-sm text-gray-400 hover:text-gray-600">← 返回论坛</Link>
-      <h1 className="text-xl font-bold mt-4 mb-6">发新帖</h1>
+    <div className="fade-in">
+      <Link href="/forum" className="back-link">← 返回论坛</Link>
+      <h1 className="page-title mt-4 mb-6">发新帖</h1>
 
-      <div className="bg-white border border-gray-200 rounded-xl p-5 flex flex-col gap-4">
+      <div className="card p-5 flex flex-col gap-4">
         <div>
-          <label className="block text-sm font-medium mb-1.5">标题 <span className="text-red-400">*</span></label>
+          <label className="block text-sm font-medium text-slate-700 mb-1.5">标题 <span className="text-rose-400">*</span></label>
           <input
             type="text"
             value={title}
             onChange={e => setTitle(e.target.value)}
             placeholder="一句话概括你想说的"
-            className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-gray-400"
+            className="input"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1.5">正文（可选）</label>
+          <label className="block text-sm font-medium text-slate-700 mb-1.5">正文（可选）</label>
           <textarea
             value={body}
             onChange={e => setBody(e.target.value)}
             placeholder="详细描述…"
             rows={5}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-gray-400 resize-none"
+            className="input resize-none"
           />
         </div>
-        {error && <p className="text-red-500 text-sm">{error}</p>}
+        {error && <p className="text-rose-500 text-sm">{error}</p>}
         <button
           onClick={submit}
           disabled={submitting}
-          className="bg-gray-900 text-white text-sm px-5 py-2.5 rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50 self-start"
+          className="btn-primary px-5 py-2.5 self-start"
         >
           {submitting ? '发布中…' : '发布'}
         </button>

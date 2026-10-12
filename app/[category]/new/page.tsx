@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
+import { fetchCategory, getCachedCategory } from '@/lib/categoryCache'
 import { getUserToken } from '@/lib/userToken'
 import type { Category } from '@/types'
 
@@ -21,8 +21,9 @@ export default function NewItemPage() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    supabase.from('categories').select('*').eq('slug', slug).single()
-      .then(({ data }) => { if (data) setCategory(data) })
+    const cached = getCachedCategory(slug)
+    if (cached) setCategory(cached)
+    fetchCategory(slug).then(data => { if (data) setCategory(data) })
   }, [slug])
 
   async function submit() {
@@ -57,38 +58,38 @@ export default function NewItemPage() {
   }
 
   return (
-    <div>
-      <Link href={`/${slug}`} className="text-sm text-gray-400 hover:text-gray-600">← 返回</Link>
-      <h1 className="text-xl font-bold mt-4 mb-6">
+    <div className="fade-in">
+      <Link href={`/${slug}`} className="back-link">← 返回</Link>
+      <h1 className="page-title mt-4 mb-6">
         添加新条目 {category ? `· ${category.name}` : ''}
       </h1>
 
-      <div className="bg-white border border-gray-200 rounded-xl p-5 flex flex-col gap-4">
+      <div className="card p-5 flex flex-col gap-4">
         <div>
-          <label className="block text-sm font-medium mb-1.5">条目名称 <span className="text-red-400">*</span></label>
+          <label className="block text-sm font-medium text-slate-700 mb-1.5">条目名称 <span className="text-rose-400">*</span></label>
           <input
             type="text"
             value={name}
             onChange={e => setName(e.target.value)}
             placeholder="例如：Murdy Hall 或 ECON 101"
-            className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-gray-400"
+            className="input"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1.5">简短描述（可选）</label>
+          <label className="block text-sm font-medium text-slate-700 mb-1.5">简短描述（可选）</label>
           <input
             type="text"
             value={description}
             onChange={e => setDescription(e.target.value)}
             placeholder="一句话介绍"
-            className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-gray-400"
+            className="input"
           />
         </div>
-        {error && <p className="text-red-500 text-sm">{error}</p>}
+        {error && <p className="text-rose-500 text-sm">{error}</p>}
         <button
           onClick={submit}
           disabled={submitting}
-          className="bg-gray-900 text-white text-sm px-5 py-2.5 rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50 self-start"
+          className="btn-primary px-5 py-2.5 self-start"
         >
           {submitting ? '提交中…' : '提交'}
         </button>
